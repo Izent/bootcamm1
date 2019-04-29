@@ -1,0 +1,69 @@
+version: "2.1"
+services:
+  eureka-server:
+    image:  eurekaserver:latest
+    ports:
+      - 8761:8761
+  db:
+    container_name: postgresql-serv
+    build: ../database/
+    image: pruebaimage:latest
+    environment:
+      - POSTGRES_USER:postgres
+      - POSTGRES_PASSWORD:root
+      - POSTGRES_DB:tamanio
+    ports:
+      - 5432:5432
+    restart: on-failure
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db_data:/var/lib/postgresql/data
+  service-b:
+    image: ejercicio01:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - 9292:9292
+    environment:
+      - DATABASE_HOST=192.168.99.100
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=root
+      - DATABASE_NAME=tamanio
+      - DATABASE_PORT=5432
+    links:
+      - eureka-server
+  service-a:
+    image: ejercicio02:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - 9393:9393
+    environment:
+      - DATABASE_HOST=192.168.99.100
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=root
+      - DATABASE_NAME=tamanio
+      - DATABASE_PORT=5432
+    links:
+      - eureka-server
+  zuul:
+    image: zuulserver:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - 8079:8079
+    links:
+      - eureka-server
+volumes:
+  db_data:
+networks:
+  backend:
